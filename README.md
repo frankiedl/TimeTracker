@@ -164,3 +164,37 @@ The included `time-tracker.bat` file provides the following functionality:
 4. Launches the Time Tracker application
 
 This makes the application easy to run on Windows systems without manually installing dependencies or running Python commands.
+
+
+# Changelog Time Tracker v1.2.1
+
+## Bug Fixes
+- Fixed indentation of `setup_ui` method to be properly inside the `TimeTrackerApp` class
+- Added debug print in `check_activity` to track inactivity detection
+
+## Changes
+- Reduced inactivity threshold from 10 minutes to 5 minutes (300 seconds)
+- Changed inactivity check interval to run every second
+- Added immediate activity checking on tracking start
+
+## Previous Changes (v1.2.0)
+- Added multi-currency support
+- English UI
+- Automatic dependency installation
+- Excel-based data storage with proper data types
+- Project and rate management
+
+## Technical Updates
+- DataFrame handling improvements
+- Activity detection optimization
+- UI responsiveness improvements
+
+## Notes
+- Functionality requires Windows for inactivity detection
+- Excel file is created on first run
+- All times are saved in local timezone
+
+To test inactivity detection:
+1. Start tracking a project
+2. Do not move mouse or use keyboard
+3. The app should stop after 5 minutes of inactivity
