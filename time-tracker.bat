@@ -1,19 +1,19 @@
 @echo off
-REM Cambiar directorio a donde está el script
+REM Change directory to where the script is located
 cd /d "%~dp0"
 
-REM Verificar e instalar pandas y openpyxl si no están presentes
+REM Check and install pandas and openpyxl if they are not present
 python -m pip show pandas >nul 2>&1
 if %errorlevel% neq 0 (
-    echo Instalando pandas...
+    echo Installing pandas...
     python -m pip install pandas
 )
 
 python -m pip show openpyxl >nul 2>&1
 if %errorlevel% neq 0 (
-    echo Instalando openpyxl...
+    echo Installing openpyxl...
     python -m pip install openpyxl
 )
 
-REM Ejecutar el script de Python
+REM Run the Python script
 python time_tracker.py

@@ -1,0 +1,62 @@
+----------------------------------------------------
+Check you have python installed, if you're unsure:
+Open Terminal and paste this:
+	python3 -m ensurepip --upgrade
+-----------------------------------------------------
+
+........................................................................
+IF YOU ALREADY HAVE PYTHON (Or you have just followed the previous step)
+........................................................................
+
+1. Open terminal
+2. In terminal go to the folder where runtime_tracker.sh is
+3. In terminal write:
+	chmod +x run_time_tracker.sh
+
+to run, write this in Terminal:
+	./run_time_tracker.sh
+
+---------------------------------------------
+Alternate option, make an executable script
+---------------------------------------------
+
+Here’s how to set up a clickable script on macOS to work similarly to a `.bat` file on Windows. You have two main options: using **AppleScript** or **Automator** to execute your Bash script. 
+
+### Option 1: Use AppleScript to Run the Bash Script
+1. **Open Script Editor**: Go to **Applications > Utilities** and open **Script Editor**.
+2. **Create the Script**: In the editor, enter the following code, replacing `path/to/your/script` with the actual path to your `.sh` file:
+
+   ```applescript
+   do shell script "/bin/bash /path/to/your/run_time_tracker.sh"
+   ```
+
+3. **Save as an Application**:
+   - Go to **File > Export…**.
+   - In **File Format**, choose **Application**.
+   - Give it a name (e.g., `TimeTrackerApp`) and save it where you prefer.
+
+Now, double-clicking this AppleScript file will run your Bash script, installing dependencies if needed and launching your Python application.
+
+### Option 2: Make the Bash Script Executable as an Application
+Alternatively, you can use **Automator** to convert the Bash script into a macOS “application” that you can launch with a click.
+
+1. **Make the Bash Script Executable**:
+   Ensure your Bash script (`run_time_tracker.sh`) is executable by running this in the terminal:
+
+   ```bash
+   chmod +x /path/to/your/run_time_tracker.sh
+   ```
+
+2. **Create an Application Alias with Automator**:
+   - Open **Automator** (found in **Applications > Utilities**).
+   - Create a new **Document** and select **Application** as the type.
+   - In the action search bar, type "Run Shell Script" and drag it into the workflow area.
+   - Set the **Shell** to `/bin/bash` and type in the path to your script:
+
+     ```bash
+     /path/to/your/run_time_tracker.sh
+     ```
+
+   - Save the application with a name like `TimeTrackerApp`.
+
+This Automator-created application will run with a double-click, similar to a `.bat` file on Windows, and will execute your Bash script as needed.
