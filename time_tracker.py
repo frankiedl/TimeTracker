@@ -1,3 +1,5 @@
+# TimeTracker V.1.2.1 by Frankie De Leonardis
+
 import subprocess
 import sys
 import tkinter as tk
@@ -5,6 +7,9 @@ from tkinter import ttk, messagebox, simpledialog
 import pandas as pd
 from datetime import datetime, timedelta
 import os
+import ctypes
+import time
+from ctypes import Structure, c_ulong, byref
 
 # Check and install required libraries
 def install_and_import(package):
@@ -15,6 +20,13 @@ def install_and_import(package):
 
 install_and_import("pandas")
 install_and_import("openpyxl")
+
+# Windows API structures and functions for last input detection
+class LASTINPUTINFO(Structure):
+    _fields_ = [
+        ('cbSize', c_ulong),
+        ('dwTime', c_ulong),
+    ]
 
 class TimeTrackerApp:
     def __init__(self, root):
@@ -43,6 +55,14 @@ class TimeTrackerApp:
         self.total_time = timedelta()
         self.rate_per_minute = 0
         
+        # Initialize inactivity tracking
+        self.inactivity_threshold = 300  # 5 minutes in seconds
+        self.last_activity_check = time.time()
+        
+        # Initialize last input info
+        self.lastInputInfo = LASTINPUTINFO()
+        self.lastInputInfo.cbSize = ctypes.sizeof(self.lastInputInfo)
+        
         # Styles
         self.style = ttk.Style()
         self.style.configure('Section.TLabel', font=('Helvetica', 10), foreground='#666666')
@@ -52,16 +72,26 @@ class TimeTrackerApp:
         
         # Create Excel file if it doesn't exist
         if not os.path.exists(self.excel_file):
-            df = pd.DataFrame(columns=['Project', 'Date', 'Start_Time', 'End_Time', 'Duration_Minutes', 'Rate', 'Currency'])
+            # Create initial DataFrame with explicit dtypes
+            df = pd.DataFrame({
+                'Project': pd.Series(dtype='string'),
+                'Date': pd.Series(dtype='datetime64[ns]'),
+                'Start_Time': pd.Series(dtype='string'),
+                'End_Time': pd.Series(dtype='string'),
+                'Duration_Minutes': pd.Series(dtype='int64'),
+                'Rate': pd.Series(dtype='float64'),
+                'Currency': pd.Series(dtype='string')
+            })
             df.to_excel(self.excel_file, index=False)
         
         self.setup_ui()
         self.load_projects_and_rates()
     
-    def setup_ui(self):
+    def setup_ui(self):  # Note la indentación correcta aquí
         # Main container with padding
         main_container = ttk.Frame(self.root, padding="20 20 20 20")
         main_container.pack(fill=tk.BOTH, expand=True)
+        ...
         
         # Start/Stop Button as a large circular button
         self.start_button = tk.Button(
@@ -122,7 +152,7 @@ class TimeTrackerApp:
         
         ttk.Label(
             rate_frame,
-            text="Rate (per 8 hours)",
+            text="Rate",
             style='Section.TLabel'
         ).pack(anchor=tk.W)
         
@@ -204,6 +234,29 @@ class TimeTrackerApp:
         # Add bindings for project and rate selection
         self.project_combo.bind('<<ComboboxSelected>>', self.on_project_or_rate_change)
         self.rate_combo.bind('<<ComboboxSelected>>', self.on_project_or_rate_change)
+
+    def get_last_input_time(self):
+        """Get the last input time from Windows API"""
+        ctypes.windll.user32.GetLastInputInfo(byref(self.lastInputInfo))
+        last_input_time = self.lastInputInfo.dwTime
+        current_time = ctypes.windll.kernel32.GetTickCount()
+        return (current_time - last_input_time) / 1000  # Convert to seconds
+
+    def check_activity(self):
+        """Check for user activity and stop tracking if inactive"""
+        if self.is_tracking:
+            idle_time = self.get_last_input_time()
+            # print(f"Idle time: {idle_time} seconds")  # Debug print
+            if idle_time > self.inactivity_threshold:
+                # User has been inactive for more than 5 minutes, stop tracking
+                messagebox.showinfo(
+                    "Inactivity Detected", 
+                    "Tracking stopped due to 5 minutes of inactivity."
+                )
+                self.stop_tracking()
+            else:
+                # Continue checking activity
+                self.root.after(1000, self.check_activity)
 
     def on_currency_change(self, event=None):
         """Handle currency change"""
@@ -345,7 +398,10 @@ class TimeTrackerApp:
         self.start_button.config(text="STOP", bg="#f44336")
         self.update_timer()
         
-        # Disable project, rate and currency selection while tracking
+        # Start activity checking immediately
+        self.check_activity()
+        
+        # Disable project and rate selection while tracking
         self.project_combo.config(state="disabled")
         self.rate_combo.config(state="disabled")
         self.currency_combo.config(state="disabled")
@@ -358,8 +414,8 @@ class TimeTrackerApp:
             duration = end_time - self.start_time
             duration_minutes = int(duration.total_seconds() / 60)
             
-            # Save the session to Excel
-            new_record = {
+            # Create new record as DataFrame directly with explicit dtypes
+            new_record = pd.DataFrame({
                 'Project': [self.current_project],
                 'Date': [self.start_time.date()],
                 'Start_Time': [self.start_time.strftime('%H:%M:%S')],
@@ -367,9 +423,17 @@ class TimeTrackerApp:
                 'Duration_Minutes': [duration_minutes],
                 'Rate': [self.current_rate],
                 'Currency': [self.currency_var.get()]
-            }
+            })
+
+            # Read existing data
             df = pd.read_excel(self.excel_file)
-            df = pd.concat([df, pd.DataFrame(new_record)], ignore_index=True)
+            
+            # Ensure both DataFrames have the same column types
+            for col in df.columns:
+                new_record[col] = new_record[col].astype(df[col].dtype)
+            
+            # Concatenate and save
+            df = pd.concat([df, new_record], ignore_index=True)
             df.to_excel(self.excel_file, index=False)
             
             # Update the total time and billing
@@ -379,7 +443,7 @@ class TimeTrackerApp:
         self.start_button.config(text="START", bg="#4CAF50")
         self.timer_label.config(text="00:00:00")
         
-       # Re-enable project, rate and currency selection
+        # Re-enable project, rate and currency selection
         self.project_combo.config(state="readonly")
         self.rate_combo.config(state="readonly")
         self.currency_combo.config(state="readonly")
