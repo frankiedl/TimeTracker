@@ -35,7 +35,7 @@ A simple yet powerful desktop application for tracking time spent on projects an
 
 1. Clone this repository:
 ```bash
-git clone https://github.com/frankiedl/time-tracker.git
+git clone https://github.com/frankiedl/TimeTracker.git
 cd time-tracker
 ```
 
