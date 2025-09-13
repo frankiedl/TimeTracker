@@ -110,14 +110,6 @@ All data is stored in an Excel file (`time_tracking.xlsx`) with the following co
 - Rate
 - Currency
 
-## Features in Development
-
-- Currency conversion support
-- Data export functionality
-- Detailed reporting
-- Multi-language support
-- Dark mode theme
-
 ## Contributing
 
 1. Fork the repository
@@ -172,11 +164,6 @@ This makes the application easy to run on Windows systems without manually insta
 - Fixed indentation of `setup_ui` method to be properly inside the `TimeTrackerApp` class
 - Added debug print in `check_activity` to track inactivity detection
 
-## Changes
-- Reduced inactivity threshold from 10 minutes to 5 minutes (300 seconds)
-- Changed inactivity check interval to run every second
-- Added immediate activity checking on tracking start
-
 ## Previous Changes (v1.2.0)
 - Added multi-currency support
 - English UI
@@ -190,11 +177,5 @@ This makes the application easy to run on Windows systems without manually insta
 - UI responsiveness improvements
 
 ## Notes
-- Functionality requires Windows for inactivity detection
 - Excel file is created on first run
 - All times are saved in local timezone
-
-To test inactivity detection:
-1. Start tracking a project
-2. Do not move mouse or use keyboard
-3. The app should stop after 5 minutes of inactivity
