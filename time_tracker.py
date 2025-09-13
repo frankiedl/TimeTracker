@@ -1,4 +1,4 @@
-# TimeTracker V.1.2.1 by Frankie De Leonardis
+# TimeTracker V.1.2.2 by Frankie De Leonardis - Sin detección de inactividad
 
 import subprocess
 import sys
@@ -7,9 +7,6 @@ from tkinter import ttk, messagebox, simpledialog
 import pandas as pd
 from datetime import datetime, timedelta
 import os
-import ctypes
-import time
-from ctypes import Structure, c_ulong, byref
 
 # Check and install required libraries
 def install_and_import(package):
@@ -21,18 +18,11 @@ def install_and_import(package):
 install_and_import("pandas")
 install_and_import("openpyxl")
 
-# Windows API structures and functions for last input detection
-class LASTINPUTINFO(Structure):
-    _fields_ = [
-        ('cbSize', c_ulong),
-        ('dwTime', c_ulong),
-    ]
-
 class TimeTrackerApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Time Tracker")
-        self.root.geometry("400x650")  # Increased height for currency selector
+        self.root.title("Time Tracker v1.2.2")
+        self.root.geometry("400x650")
         self.root.configure(bg="#F0F0F0")
 
         # Currency configuration
@@ -54,14 +44,6 @@ class TimeTrackerApp:
         # Initialize total time and rate per minute
         self.total_time = timedelta()
         self.rate_per_minute = 0
-        
-        # Initialize inactivity tracking
-        self.inactivity_threshold = 300  # 5 minutes in seconds
-        self.last_activity_check = time.time()
-        
-        # Initialize last input info
-        self.lastInputInfo = LASTINPUTINFO()
-        self.lastInputInfo.cbSize = ctypes.sizeof(self.lastInputInfo)
         
         # Styles
         self.style = ttk.Style()
@@ -87,11 +69,10 @@ class TimeTrackerApp:
         self.setup_ui()
         self.load_projects_and_rates()
     
-    def setup_ui(self):  # Note la indentación correcta aquí
+    def setup_ui(self):
         # Main container with padding
         main_container = ttk.Frame(self.root, padding="20 20 20 20")
         main_container.pack(fill=tk.BOTH, expand=True)
-        ...
         
         # Start/Stop Button as a large circular button
         self.start_button = tk.Button(
@@ -235,29 +216,6 @@ class TimeTrackerApp:
         self.project_combo.bind('<<ComboboxSelected>>', self.on_project_or_rate_change)
         self.rate_combo.bind('<<ComboboxSelected>>', self.on_project_or_rate_change)
 
-    def get_last_input_time(self):
-        """Get the last input time from Windows API"""
-        ctypes.windll.user32.GetLastInputInfo(byref(self.lastInputInfo))
-        last_input_time = self.lastInputInfo.dwTime
-        current_time = ctypes.windll.kernel32.GetTickCount()
-        return (current_time - last_input_time) / 1000  # Convert to seconds
-
-    def check_activity(self):
-        """Check for user activity and stop tracking if inactive"""
-        if self.is_tracking:
-            idle_time = self.get_last_input_time()
-            # print(f"Idle time: {idle_time} seconds")  # Debug print
-            if idle_time > self.inactivity_threshold:
-                # User has been inactive for more than 5 minutes, stop tracking
-                messagebox.showinfo(
-                    "Inactivity Detected", 
-                    "Tracking stopped due to 5 minutes of inactivity."
-                )
-                self.stop_tracking()
-            else:
-                # Continue checking activity
-                self.root.after(1000, self.check_activity)
-
     def on_currency_change(self, event=None):
         """Handle currency change"""
         selected_currency = self.currency_var.get()
@@ -282,8 +240,8 @@ class TimeTrackerApp:
     def load_projects_and_rates(self):
         try:
             df = pd.read_excel(self.excel_file)
-            projects = sorted(df['Project'].unique())
-            rates = sorted(df['Rate'].unique())
+            projects = sorted(df['Project'].dropna().unique())
+            rates = sorted(df['Rate'].dropna().unique())
 
             if len(projects) > 0:
                 self.project_combo['values'] = projects
@@ -294,7 +252,7 @@ class TimeTrackerApp:
             if self.project_var.get() and self.rate_var.get():
                 self.update_project_totals()
         except Exception as e:
-            messagebox.showerror("Error", f"Error loading projects and rates: {str(e)}")
+            print(f"Info: Creating new Excel file: {str(e)}")
 
     def on_project_or_rate_change(self, event=None):
         """Called when either project or rate selection changes"""
@@ -331,21 +289,25 @@ class TimeTrackerApp:
                     self.rate_per_minute = rate / 8 / 60
                     self.update_billing()
             except Exception as e:
-                messagebox.showerror("Error", f"Error updating totals: {str(e)}")
+                print(f"Error updating totals: {str(e)}")
 
     def update_timer(self):
-        if self.is_tracking:
+        """Update the timer display every second"""
+        if self.is_tracking and self.start_time:
             elapsed = datetime.now() - self.start_time
             self.timer_label.config(text=self.format_timer(elapsed))
+            # Schedule next update
             self.root.after(1000, self.update_timer)
 
     def update_billing(self):
+        """Update the billing display"""
         total_minutes = self.total_time.total_seconds() / 60
         total_bill = total_minutes * self.rate_per_minute
         self.total_time_label.config(text=self.format_timer(self.total_time))
         self.bill_label.config(text=self.format_amount(total_bill))
 
     def add_project(self):
+        """Add a new project"""
         project_name = simpledialog.askstring("New Project", "Enter project name:")
         if project_name:
             if not project_name.strip():
@@ -363,8 +325,9 @@ class TimeTrackerApp:
                 messagebox.showwarning("Warning", "This project already exists.")
 
     def add_rate(self):
+        """Add a new rate"""
         rate_value = simpledialog.askfloat("New Rate", f"Enter rate ({self.currency_symbol}) per 8 hours:")
-        if rate_value:
+        if rate_value is not None:  # Check for None to allow 0 values
             if rate_value <= 0:
                 messagebox.showwarning("Warning", "Rate must be greater than zero.")
                 return
@@ -381,25 +344,29 @@ class TimeTrackerApp:
                 messagebox.showwarning("Warning", "This rate already exists.")
 
     def toggle_tracking(self):
+        """Toggle between start and stop tracking"""
         if not self.is_tracking:
             self.start_tracking()
         else:
             self.stop_tracking()
 
     def start_tracking(self):
+        """Start time tracking"""
         if not self.project_var.get() or not self.rate_var.get():
             messagebox.showwarning("Warning", "Please select a project and rate.")
             return
         
         self.current_project = self.project_var.get()
-        self.current_rate = float(self.rate_var.get())
+        try:
+            self.current_rate = float(self.rate_var.get())
+        except ValueError:
+            messagebox.showerror("Error", "Invalid rate value.")
+            return
+            
         self.start_time = datetime.now()
         self.is_tracking = True
         self.start_button.config(text="STOP", bg="#f44336")
         self.update_timer()
-        
-        # Start activity checking immediately
-        self.check_activity()
         
         # Disable project and rate selection while tracking
         self.project_combo.config(state="disabled")
@@ -409,37 +376,53 @@ class TimeTrackerApp:
         self.add_rate_button.config(state="disabled")
 
     def stop_tracking(self):
+        """Stop time tracking and save the session"""
         if self.is_tracking and self.start_time:
             end_time = datetime.now()
             duration = end_time - self.start_time
-            duration_minutes = int(duration.total_seconds() / 60)
+            duration_minutes = max(1, int(duration.total_seconds() / 60))  # Minimum 1 minute
             
-            # Create new record as DataFrame directly with explicit dtypes
-            new_record = pd.DataFrame({
-                'Project': [self.current_project],
-                'Date': [self.start_time.date()],
-                'Start_Time': [self.start_time.strftime('%H:%M:%S')],
-                'End_Time': [end_time.strftime('%H:%M:%S')],
-                'Duration_Minutes': [duration_minutes],
-                'Rate': [self.current_rate],
-                'Currency': [self.currency_var.get()]
-            })
+            try:
+                # Validate current_rate before saving
+                if self.current_rate is None or self.current_rate <= 0:
+                    messagebox.showerror("Error", "Invalid rate value for saving session.")
+                    return
+                
+                # Create new record as DataFrame directly with explicit dtypes
+                new_record = pd.DataFrame({
+                    'Project': [str(self.current_project)],
+                    'Date': [self.start_time.date()],
+                    'Start_Time': [self.start_time.strftime('%H:%M:%S')],
+                    'End_Time': [end_time.strftime('%H:%M:%S')],
+                    'Duration_Minutes': [duration_minutes],
+                    'Rate': [float(self.current_rate)],
+                    'Currency': [str(self.currency_var.get())]
+                })
 
-            # Read existing data
-            df = pd.read_excel(self.excel_file)
-            
-            # Ensure both DataFrames have the same column types
-            for col in df.columns:
-                new_record[col] = new_record[col].astype(df[col].dtype)
-            
-            # Concatenate and save
-            df = pd.concat([df, new_record], ignore_index=True)
-            df.to_excel(self.excel_file, index=False)
-            
-            # Update the total time and billing
-            self.update_project_totals()
+                # Read existing data
+                df = pd.read_excel(self.excel_file)
+                
+                # Concatenate and save
+                df = pd.concat([df, new_record], ignore_index=True)
+                df.to_excel(self.excel_file, index=False)
+                
+                # Update the total time and billing
+                self.update_project_totals()
+                
+                # Show success message
+                messagebox.showinfo("Success", f"Session saved: {duration_minutes} minutes")
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"Error saving session: {str(e)}")
+                print(f"Debug - current_rate: {self.current_rate}, type: {type(self.current_rate)}")
+                print(f"Debug - currency: {self.currency_var.get()}")
         
+        # Reset tracking state
         self.is_tracking = False
+        self.current_project = None
+        self.current_rate = None
+        self.start_time = None
+        
         self.start_button.config(text="START", bg="#4CAF50")
         self.timer_label.config(text="00:00:00")
         
